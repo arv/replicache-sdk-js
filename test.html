@@ -1,0 +1,76 @@
+<script type="module">
+  import init, {
+    format_hash,
+    compute_hash,
+    compute_hash_for_blob,
+    compute_hash_for_blob_return_buf,
+    base32,
+  } from './src/wasm/release/replicache_client.js';
+
+  async function computeHashInJs(blob) {
+    const buf = await blob.arrayBuffer();
+    const res = await crypto.subtle.digest('SHA-512', buf);
+    return format_hash(new Uint8Array(res, 0, 20));
+  }
+
+  async function computeHashInJsAsUint8Array(blob) {
+    const buf = await blob.arrayBuffer();
+    const res = await crypto.subtle.digest('SHA-512', buf);
+    return new Uint8Array(res, 0, 20);
+  }
+
+  (async () => {
+    const c = await init();
+    const b = new Blob([
+      'sdabsbsacfabsdfbasjkldbasldgasldhasiodhasdasudhasldhasildasdsaiudghasbdasdpashdbaosyd'.repeat(
+        1,
+      ),
+    ]);
+
+    console.log(base32(new Uint8Array(await b.arrayBuffer())));
+
+    const iterations_2 = 500;
+
+    console.time('computeHashInJsAsUint8Array');
+    for (let i = 0; i < iterations_2; i++) {
+      await computeHashInJsAsUint8Array(b);
+    }
+    console.timeEnd('computeHashInJsAsUint8Array');
+
+    console.time('compute_hash_for_blob_return_buf');
+    for (let i = 0; i < iterations_2; i++) {
+      await compute_hash_for_blob_return_buf(b);
+    }
+    console.timeEnd('compute_hash_for_blob_return_buf');
+
+    const iterations_1 = 500;
+
+    console.time('computeHashInJs');
+    for (let i = 0; i < iterations_1; i++) {
+      await computeHashInJs(b);
+    }
+    console.timeEnd('computeHashInJs');
+
+    console.time('compute_hash_for_blob');
+    for (let i = 0; i < iterations_1; i++) {
+      await compute_hash_for_blob(b);
+    }
+    console.timeEnd('compute_hash_for_blob');
+
+    const iterations = 10_000;
+
+    const buf = new Uint8Array(1024);
+    console.time('wasm');
+    for (let i = 0; i < iterations; i++) {
+      compute_hash(buf);
+    }
+    console.timeEnd('wasm');
+
+    console.time('native');
+    for (let i = 0; i < iterations; i++) {
+      const hash = await crypto.subtle.digest('SHA-512', buf);
+      format_hash(new Uint8Array(hash, 0, 20));
+    }
+    console.timeEnd('native');
+  })();
+</script>
